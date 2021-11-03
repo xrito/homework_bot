@@ -33,11 +33,11 @@ logger.addHandler(
 
 
 class StatusError(Exception):
-    '''недокументированный статус домашней работы, обнаруженный в ответе API.'''
+    """недокументированный статус домашней работы в ответе API."""
 
 
 def send_message(bot, message):
-    '''Отправляет сообщения в чат'''
+    """Отправляет сообщения в чат."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         logger.info(
@@ -48,7 +48,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(url, current_timestamp):
-    '''Отправляет запрос к API домашки на ENDPOINT и получает данные.'''
+    """Отправляет запрос к API домашки на ENDPOINT и получает данные."""
     params = {'from_date': current_timestamp}
     headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
     try:
@@ -66,7 +66,7 @@ def get_api_answer(url, current_timestamp):
 
 
 def parse_status(homework):
-    '''Проверяет не изменился ли статус'''
+    """Проверяет не изменился ли статус."""
     homework_status = homework.get('status')
     homework_name = homework.get('homework_name')
     verdict = HOMEWORK_STATUSES[homework_status]
@@ -78,7 +78,8 @@ def parse_status(homework):
             data['homework_old'] = homework
             with open('data.txt', 'w+') as outfile:
                 json.dump(data, outfile, indent=2)
-            return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+            return ('Изменился статус проверки работы'
+                    f'"{homework_name}". {verdict}')
     elif not os.path.isfile('data.txt'):
         data = {}
         data['homework_old'] = homework
@@ -94,7 +95,7 @@ def parse_status(homework):
 
 
 def check_response(response):
-    '''Проверяем содержимое ответа от API'''
+    """Проверяем содержимое ответа от API."""
     if response['homeworks'] == []:
         return {}
     if response['homeworks'][0].get('status') not in HOMEWORK_STATUSES:
@@ -105,15 +106,19 @@ def check_response(response):
 
 
 def main():
+    """Главная функция."""
     if not PRACTICUM_TOKEN:
         logger.critical(
-            f'Программа остановлена. Отсутствует обязательная переменная окружения: PRACTICUM_TOKEN')
+            'Программа остановлена.'
+            'Отсутствует обязательная переменная окружения: PRACTICUM_TOKEN')
     if not TELEGRAM_TOKEN:
         logger.critical(
-            f'Программа остановлена. Отсутствует обязательная переменная окружения: TELEGRAM_TOKEN')
+            'Программа остановлена.'
+            'Отсутствует обязательная переменная окружения: TELEGRAM_TOKEN')
     if not TELEGRAM_CHAT_ID:
         logger.critical(
-            f'Программа остановлена. Отсутствует обязательная переменная окружения: TELEGRAM_CHAT_ID')
+            'Программа остановлена.'
+            'Отсутствует обязательная переменная окружения: TELEGRAM_CHAT_ID')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time()) - 3000000
     while True:
