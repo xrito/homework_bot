@@ -78,7 +78,7 @@ def parse_status(homework):
             data['homework_old'] = homework
             with open('data.txt', 'w+') as outfile:
                 json.dump(data, outfile, indent=2)
-            return ('Изменился статус проверки работы'
+            return ('Изменился статус проверки работы '
                     f'"{homework_name}". {verdict}')
     elif not os.path.isfile('data.txt'):
         data = {}
