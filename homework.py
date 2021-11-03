@@ -120,7 +120,7 @@ def main():
             'Программа остановлена.'
             'Отсутствует обязательная переменная окружения: TELEGRAM_CHAT_ID')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time()) - 3000000
+    current_timestamp = int(time.time())
     while True:
         try:
             response = get_api_answer(ENDPOINT, current_timestamp)
