@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+from http import HTTPStatus
 
 import requests
 import telegram
@@ -12,13 +13,14 @@ load_dotenv()
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('CHAT_ID')
-RETRY_TIME = 600
+RETRY_TIME = 15
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
-HOMEWORK_STATUSES = {
+VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена, в ней нашлись ошибки.'
 }
+headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,34 +52,46 @@ def send_message(bot, message):
 def get_api_answer(url, current_timestamp):
     """Отправляет запрос к API домашки на ENDPOINT и получает данные."""
     params = {'from_date': current_timestamp}
-    headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
     try:
         response = requests.get(url, headers=headers, params=params)
-        if response.status_code != 200:
-            error_message = (
-                f'Эндпоинт не доступен, статус: {response.status_code}')
-            logger.error(error_message)
-            raise requests.exceptions.HTTPError(error_message)
-        return response.json()
     except requests.exceptions.RequestException as error:
         error_message = f'Код ответа API: {error}'
         logger.error(error_message)
         raise requests.exceptions.RequestException(error_message)
+    finally:
+        if response.status_code != HTTPStatus.OK:
+            error_message = (
+                f'Эндпоинт не доступен, статус: {response.status_code}')
+            logger.error(error_message)
+            raise requests.exceptions.HTTPError(error_message)
+    return response.json()
 
 
 def parse_status(homework):
     """Проверяет не изменился ли статус."""
     homework_status = homework.get('status')
     homework_name = homework.get('homework_name')
-    verdict = HOMEWORK_STATUSES[homework_status]
+    verdict = VERDICTS[homework_status]
+    if not homework_status:
+        error_message = f'Ошибка. Значение статуса пусто: {homework_status}'
+        logger.error(error_message)
+        raise StatusError(error_message)
+    if not homework_name:
+        error_message = f'Ошибка. Значение имени работы пусто: {homework_name}'
+        logger.error(error_message)
+        raise StatusError(error_message)
     if os.path.isfile('data.txt') and os.path.getsize('data.txt') != 0:
         with open('data.txt') as json_file:
             data = json.load(json_file)
+            logger.info('Файл найден и открыт.')
         if data['homework_old']['status'] != homework['status']:
+            logger.info('Найден новый статус')
             data = {}
             data['homework_old'] = homework
             with open('data.txt', 'w+') as outfile:
                 json.dump(data, outfile, indent=2)
+                logger.info('Новые данные записаны в файл.')
+            logger.info('Данные переданы боту.')
             return ('Изменился статус проверки работы '
                     f'"{homework_name}". {verdict}')
     elif not os.path.isfile('data.txt'):
@@ -85,42 +99,48 @@ def parse_status(homework):
         data['homework_old'] = homework
         with open('data.txt', 'w+') as outfile:
             json.dump(data, outfile, indent=2)
+        logger.info('Новые данные получены, файла нет.')
         return f'Изменился статус проверки работы "{homework_name}". {verdict}'
     else:
+        logger.info('Файл найден. Файл пуст.')
         data = {}
         data['homework_old'] = homework
         with open('data.txt', 'w+') as outfile:
             json.dump(data, outfile, indent=2)
+        logger.info('Новые данные получены')
         return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def check_response(response):
-    """Проверяем содержимое ответа от API."""
-    if response['homeworks'] == []:
+    """Проверяет содержимое ответа от API."""
+    if not response['homeworks']:
+        logger.info('Словарь homeworks пуст.')
         return {}
-    if response['homeworks'][0].get('status') not in HOMEWORK_STATUSES:
-        error_message = ('Неизвестный статус домашней работы!')
+    if response['homeworks'][0].get('status') not in VERDICTS:
+        error_message = 'Неизвестный статус домашней работы!'
         logger.error(error_message)
         raise StatusError(error_message)
     return response['homeworks'][0]
 
 
+def checking_variables():
+    """Проверяет токены."""
+    error_message = ('Программа остановлена.'
+                     'Отсутствует обязательная переменная окружения:')
+    if not PRACTICUM_TOKEN:
+        logger.critical(f'{error_message} PRACTICUM_TOKEN')
+    if not TELEGRAM_TOKEN:
+        logger.critical(f'{error_message} TELEGRAM_TOKEN')
+    if not TELEGRAM_CHAT_ID:
+        logger.critical(f'{error_message} TELEGRAM_CHAT_ID')
+
+
 def main():
     """Главная функция."""
-    if not PRACTICUM_TOKEN:
-        logger.critical(
-            'Программа остановлена.'
-            'Отсутствует обязательная переменная окружения: PRACTICUM_TOKEN')
-    if not TELEGRAM_TOKEN:
-        logger.critical(
-            'Программа остановлена.'
-            'Отсутствует обязательная переменная окружения: TELEGRAM_TOKEN')
-    if not TELEGRAM_CHAT_ID:
-        logger.critical(
-            'Программа остановлена.'
-            'Отсутствует обязательная переменная окружения: TELEGRAM_CHAT_ID')
+    if checking_variables():
+        raise SystemExit
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time())
+    current_timestamp = int(time.time()) - 300000
     while True:
         try:
             response = get_api_answer(ENDPOINT, current_timestamp)
