@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import time
@@ -82,36 +81,6 @@ def parse_status(homework):
         raise StatusError(error_message)
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
-    # if os.path.isfile('data.txt') and os.path.getsize('data.txt') != 0:
-    #     with open('data.txt') as json_file:
-    #         data = json.load(json_file)
-    #         logger.info('Файл найден и открыт.')
-    #     if data['homework_old']['status'] != homework['status']:
-    #         logger.info('Найден новый статус')
-    #         data = {}
-    #         data['homework_old'] = homework
-    #         with open('data.txt', 'w+') as outfile:
-    #             json.dump(data, outfile, indent=2)
-    #             logger.info('Новые данные записаны в файл.')
-    #         logger.info('Данные переданы боту.')
-    #         return ('Изменился статус проверки работы '
-    #                 f'"{homework_name}". {verdict}')
-    # elif not os.path.isfile('data.txt'):
-    #     data = {}
-    #     data['homework_old'] = homework
-    #     with open('data.txt', 'w+') as outfile:
-    #         json.dump(data, outfile, indent=2)
-    #     logger.info('Новые данные получены, файла нет.')
-    #     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
-    # else:
-    #     logger.info('Файл найден. Файл пуст.')
-    #     data = {}
-    #     data['homework_old'] = homework
-    #     with open('data.txt', 'w+') as outfile:
-    #         json.dump(data, outfile, indent=2)
-    #     logger.info('Новые данные получены')
-    #     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
-
 
 def check_response(response):
     """Проверяет содержимое ответа от API."""
@@ -131,20 +100,11 @@ def check_response(response):
 
 def checking_variables():
     """Проверяет токены."""
-    # error_message = ('Программа остановлена.'
-    #                  'Отсутствует обязательная переменная окружения:')
-
     for token in [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]:
         if not token:
             logger.critical('Программа остановлена.'
                             'Отсутствует обязательная переменная окружения.')
             raise Exception('Отсутсвует токен!')
-    # if not PRACTICUM_TOKEN:
-    #     logger.critical(f'{error_message} PRACTICUM_TOKEN')
-    # if not TELEGRAM_TOKEN:
-    #     logger.critical(f'{error_message} TELEGRAM_TOKEN')
-    # if not TELEGRAM_CHAT_ID:
-    #     logger.critical(f'{error_message} TELEGRAM_CHAT_ID')
 
 
 def main():
