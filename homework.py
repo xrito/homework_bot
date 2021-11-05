@@ -13,7 +13,7 @@ load_dotenv()
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('CHAT_ID')
-RETRY_TIME = 15
+RETRY_TIME = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -44,7 +44,7 @@ def send_message(bot, message):
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         logger.info(
             f'Сообщение в Telegram отправлено: {message}')
-    except Exception as error:
+    except telegram.TelegramError as error:
         logger.error(
             f'Сообщение в Telegram не отправлено: {error}')
 
@@ -80,39 +80,45 @@ def parse_status(homework):
         error_message = f'Ошибка. Значение имени работы пусто: {homework_name}'
         logger.error(error_message)
         raise StatusError(error_message)
-    if os.path.isfile('data.txt') and os.path.getsize('data.txt') != 0:
-        with open('data.txt') as json_file:
-            data = json.load(json_file)
-            logger.info('Файл найден и открыт.')
-        if data['homework_old']['status'] != homework['status']:
-            logger.info('Найден новый статус')
-            data = {}
-            data['homework_old'] = homework
-            with open('data.txt', 'w+') as outfile:
-                json.dump(data, outfile, indent=2)
-                logger.info('Новые данные записаны в файл.')
-            logger.info('Данные переданы боту.')
-            return ('Изменился статус проверки работы '
-                    f'"{homework_name}". {verdict}')
-    elif not os.path.isfile('data.txt'):
-        data = {}
-        data['homework_old'] = homework
-        with open('data.txt', 'w+') as outfile:
-            json.dump(data, outfile, indent=2)
-        logger.info('Новые данные получены, файла нет.')
-        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
-    else:
-        logger.info('Файл найден. Файл пуст.')
-        data = {}
-        data['homework_old'] = homework
-        with open('data.txt', 'w+') as outfile:
-            json.dump(data, outfile, indent=2)
-        logger.info('Новые данные получены')
-        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+
+    # if os.path.isfile('data.txt') and os.path.getsize('data.txt') != 0:
+    #     with open('data.txt') as json_file:
+    #         data = json.load(json_file)
+    #         logger.info('Файл найден и открыт.')
+    #     if data['homework_old']['status'] != homework['status']:
+    #         logger.info('Найден новый статус')
+    #         data = {}
+    #         data['homework_old'] = homework
+    #         with open('data.txt', 'w+') as outfile:
+    #             json.dump(data, outfile, indent=2)
+    #             logger.info('Новые данные записаны в файл.')
+    #         logger.info('Данные переданы боту.')
+    #         return ('Изменился статус проверки работы '
+    #                 f'"{homework_name}". {verdict}')
+    # elif not os.path.isfile('data.txt'):
+    #     data = {}
+    #     data['homework_old'] = homework
+    #     with open('data.txt', 'w+') as outfile:
+    #         json.dump(data, outfile, indent=2)
+    #     logger.info('Новые данные получены, файла нет.')
+    #     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+    # else:
+    #     logger.info('Файл найден. Файл пуст.')
+    #     data = {}
+    #     data['homework_old'] = homework
+    #     with open('data.txt', 'w+') as outfile:
+    #         json.dump(data, outfile, indent=2)
+    #     logger.info('Новые данные получены')
+    #     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def check_response(response):
     """Проверяет содержимое ответа от API."""
+    if 'homeworks' not in response:
+        error_message = 'Ошибка в ответе API, ключ homeworks не найден.'
+        logger.error(error_message)
+        raise KeyError(error_message)
     if not response['homeworks']:
         logger.info('Словарь homeworks пуст.')
         return {}
@@ -125,14 +131,20 @@ def check_response(response):
 
 def checking_variables():
     """Проверяет токены."""
-    error_message = ('Программа остановлена.'
-                     'Отсутствует обязательная переменная окружения:')
-    if not PRACTICUM_TOKEN:
-        logger.critical(f'{error_message} PRACTICUM_TOKEN')
-    if not TELEGRAM_TOKEN:
-        logger.critical(f'{error_message} TELEGRAM_TOKEN')
-    if not TELEGRAM_CHAT_ID:
-        logger.critical(f'{error_message} TELEGRAM_CHAT_ID')
+    # error_message = ('Программа остановлена.'
+    #                  'Отсутствует обязательная переменная окружения:')
+
+    for token in [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]:
+        if not token:
+            logger.critical('Программа остановлена.'
+                            'Отсутствует обязательная переменная окружения.')
+            raise Exception('Отсутсвует токен!')
+    # if not PRACTICUM_TOKEN:
+    #     logger.critical(f'{error_message} PRACTICUM_TOKEN')
+    # if not TELEGRAM_TOKEN:
+    #     logger.critical(f'{error_message} TELEGRAM_TOKEN')
+    # if not TELEGRAM_CHAT_ID:
+    #     logger.critical(f'{error_message} TELEGRAM_CHAT_ID')
 
 
 def main():
@@ -140,7 +152,7 @@ def main():
     if checking_variables():
         raise SystemExit
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time()) - 300000
+    current_timestamp = int(time.time())
     while True:
         try:
             response = get_api_answer(ENDPOINT, current_timestamp)
