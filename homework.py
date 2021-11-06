@@ -70,15 +70,15 @@ def parse_status(homework):
     """Проверяет не изменился ли статус."""
     homework_status = homework.get('status')
     homework_name = homework.get('homework_name')
-    verdict = VERDICTS[homework_status]
-    if not homework_status:
+    if homework_status is None:
         error_message = f'Ошибка. Значение статуса пусто: {homework_status}'
         logger.error(error_message)
-        raise StatusError(error_message)
-    if not homework_name:
+        raise IndexError(error_message)
+    if homework_name is None:
         error_message = f'Ошибка. Значение имени работы пусто: {homework_name}'
         logger.error(error_message)
         raise StatusError(error_message)
+    verdict = VERDICTS[homework_status]    
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
@@ -104,13 +104,12 @@ def checking_variables():
         if not token:
             logger.critical('Программа остановлена.'
                             'Отсутствует обязательная переменная окружения.')
-            raise Exception('Отсутсвует токен!')
+            raise SystemExit
 
 
 def main():
     """Главная функция."""
-    if checking_variables():
-        raise SystemExit
+    checking_variables()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
     while True:
