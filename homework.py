@@ -78,7 +78,7 @@ def parse_status(homework):
         error_message = f'Ошибка. Значение имени работы пусто: {homework_name}'
         logger.error(error_message)
         raise StatusError(error_message)
-    verdict = VERDICTS[homework_status]    
+    verdict = VERDICTS[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
